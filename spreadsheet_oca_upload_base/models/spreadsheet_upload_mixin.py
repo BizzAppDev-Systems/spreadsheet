@@ -26,23 +26,29 @@ class SpreadsheetUploadMixin(models.AbstractModel):
         if invalid_files:
             raise ValidationError(_("Please upload a valid XLSX file."))
 
-    def _create_attachment(self):
-        """New method to create attachment from the upload file."""
+    def _get_attachment(self):
+        """New method to search for the attachment of the uploaded file."""
         self.ensure_one()
-        return self.env["ir.attachment"].create(
-            {
-                "name": self.file_name or "uploaded_file",
-                "datas": self.upload_file,
-                "res_model": self._name,
-                "res_id": self.id,
-                "type": "binary",
-            }
+        attachment = self.env["ir.attachment"].search(
+            [
+                ("res_model", "=", self._name),
+                ("res_id", "=", self.id),
+                ("res_field", "=", "upload_file"),
+            ],
+            limit=1,
         )
+        if attachment:
+            attachment.write(
+                {
+                    "name": self.file_name or "uploaded_file",
+                }
+            )
+        return attachment
 
     def action_create_spreadsheet(self):
         """New method to create spredsheet from the upload file."""
         for record in self:
-            attachment = record._create_attachment()
+            attachment = record._get_attachment()
             if not attachment:
                 continue
             spreadsheet = self.env[
